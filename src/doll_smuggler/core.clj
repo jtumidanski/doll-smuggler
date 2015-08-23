@@ -22,7 +22,6 @@
     ; If the string supplied is nil. Return 0.
     (blank? string) 0
     (= nil (re-find #"\d+" string)) 0
-    ; TODO more validation necessary?
     ; Otherwise, this looks good. Try and parse the number.
     :else
     (Integer/parseInt (re-find #"\d+" string))))
