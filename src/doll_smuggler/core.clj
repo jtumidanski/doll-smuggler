@@ -1,13 +1,14 @@
 (ns doll-smuggler.core)
-(use '[clojure.java.io])
-(use '[clojure.string :only (join split)])
+(require '[clojure.java.io :as io])
+(use '[clojure.string :only (blank? join split)])
 
 (defstruct doll :name :weight :value)
 
 ; Read the list of dolls from the path. Place each doll record in a struct in a vector.
-(defn get-dolls [path delimiter]
+(defn get-dolls
+  [path delimiter]
   (vec (let [doll-properties
-    (let [lines (line-seq (reader path))]
+    (let [lines (line-seq (io/reader path))]
       (map (fn [line] (split line delimiter)) lines))]
     (map #(apply struct doll %) doll-properties))))
 
@@ -15,15 +16,16 @@
 (declare memoized-compute-solution)
 
 ; Allow parsing of string to int. If the string provided is nil, return 0.
-(defn parse-int [string]
+(defn parse-int
+  [string]
   (cond
     ; If the string supplied is nil. Return 0.
-    (nil? string) 0
+    (blank? string) 0
+    (= nil (re-find #"\d+" string)) 0
     ; TODO more validation necessary?
     ; Otherwise, this looks good. Try and parse the number.
     :else
-    (Integer/parseInt (re-find #"\A-?\d+" string))
-    ))
+    (Integer/parseInt (re-find #"\d+" string))))
 
 ; Compute the total value of the dolls provided.
 (defn total-doll-value
@@ -77,12 +79,43 @@
 ; Use memoization to cache input against a map of previous inputs for compute-solution.
 (def memoized-compute-solution (memoize compute-solution))
 
-(defn -main
-  [max-carry-weight]
-  ; Get the list of doll-set-1 from resources/doll-set-1. Use whitespace as a delimiter.
-  ;(get-dolls "resources/doll-set-1" #"\W+")
+; Prints a doll given the set and an index.
+(defn print-dolls
+  ([dolls]
+   (println "Packed Dolls:")
+   (println "name\tweight\tvalue")
+   (print-dolls dolls (dec (count dolls))))
+  ([dolls doll-index]
+   (if (>= doll-index 0)
+     (let [{doll-name :name doll-weight :weight doll-value :value} (get dolls doll-index)]
+       (println (str doll-name "\t" doll-weight "\t" doll-value))
+       (print-dolls dolls (dec doll-index))))))
+
+; Print doll value.
+(defn print-doll-value
+  [solution]
+  (println "Doll Value:")
+  (println (total-doll-value solution))
   )
 
-(let [dolls (get-dolls "resources/doll-set-1" #"\W+")]
-  (let [solution (compute-solution 400 dolls)]
-    solution))
+; Prints the solution set.
+(defn print-solution
+  [solution]
+  (print-doll-value solution)
+  (print-dolls solution)
+  )
+
+(defn -main
+  ([max-carry-weight doll-file] (-main max-carry-weight doll-file #"\W+"))
+  ([max-carry-weight doll-file delimiter]
+   (cond
+     ; If file supplied is not accessible. Output a useful error.
+     (not (.exists (io/file doll-file))) (println "Must supply a valid file.")
+     ; If weight provided is not a number. Output a useful error.
+     (= nil (re-find #"\d+" (str max-carry-weight))) (println "Must supply a valid weight.")
+     ; If weight provided is a negative number. Output a useful error.
+     (<= (parse-int (str max-carry-weight)) 0) (println "Must supply a weight greater than zero.")
+     :else
+     (print-solution
+       (let [dolls (get-dolls doll-file delimiter)]
+         (let [solution (compute-solution (parse-int (str max-carry-weight)) dolls)] solution))))))
